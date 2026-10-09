@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Consulta de Preços e Cotação</title>
+    <link rel="stylesheet" href="style.css">
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+</head>
+<body>
+
+    <div class="container">
+        <header>
+            <div>
+                <h1>Consulta de Preços</h1>
+                <p id="last-update" class="update-info">Última atualização: Nenhuma</p>
+            </div>
+            <button id="btn-toggle-admin" class="btn-secondary">Atualizar Tabela</button>
+        </header>
+
+        <!-- Área de Upload -->
+        <section id="admin-area" class="hidden card admin-card">
+            <h2>Atualizar Base de Dados</h2>
+            <p>Selecione a planilha Excel (.xlsx) com 2 colunas (Produto e Preços).</p>
+            <input type="file" id="excel-file" accept=".xlsx, .xls">
+            <button id="btn-upload" class="btn-primary">Processar Planilha</button>
+            <p id="upload-status"></p>
+            <div id="error-log" class="hidden error-log"></div>
+        </section>
+
+        <div class="layout-wrapper">
+            <!-- COLUNA ESQUERDA: Busca e Resultados -->
+            <div class="content-left">
+                <section id="search-area" class="card">
+                    <div class="search-box">
+                        <input type="text" id="search-input" placeholder="Digite o código (ex: AB 123456701) ou nome...">
+                        <button id="btn-clear" class="btn-secondary hidden" title="Limpar Busca">X</button>
+                        <button id="btn-search" class="btn-primary">Buscar</button>
+                    </div>
+                </section>
+
+                <section id="results-area">
+                    <ul id="results-list"></ul>
+                </section>
+            </div>
+
+            <!-- COLUNA DIREITA: Carrinho de Cotação -->
+            <div class="content-right">
+                <section id="cart-area" class="card">
+                    <h2>🛒 Cotação <span id="cart-count">(0)</span></h2>
+                    
+                    <ul id="cart-list" class="cart-list">
+                        <li><p class="empty-cart">Seu carrinho está vazio.</p></li>
+                    </ul>
+                    
+                    <div class="cart-footer">
+                        <p><strong>Total:</strong> <span id="cart-total">R$ 0,00</span></p>
+                        <button id="btn-copy-cart" class="btn-primary full-width">Copiar Lista</button>
+                        <button id="btn-export-csv" class="btn-primary full-width" style="margin-top: 10px; background-color: #17a2b8;">Baixar CSV</button>
+                        <button id="btn-clear-cart" class="btn-secondary full-width" style="margin-top: 10px;">Esvaziar</button>
+                    </div>
+                </section>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL DE QUANTIDADE E DESCONTO -->
+    <div id="add-modal" class="modal hidden">
+        <div class="modal-content">
+            <h3>Adicionar ao Carrinho</h3>
+            <p id="modal-product-name" class="modal-product-desc"></p>
+            
+            <div class="form-group">
+                <label for="modal-qty">Quantidade:</label>
+                <input type="number" id="modal-qty" value="1" min="1">
+            </div>
+            
+            <div class="form-group">
+                <label for="modal-discount">Desconto (%):</label>
+                <input type="number" id="modal-discount" value="0" min="0" max="100" step="0.1">
+            </div>
+            
+            <div class="modal-actions">
+                <button id="modal-cancel" class="btn-secondary">Cancelar</button>
+                <button id="modal-confirm" class="btn-primary">Confirmar</button>
+            </div>
+        </div>
+    </div>
+
+    <script type="module" src="script.js"></script>
+</body>
+</html>
