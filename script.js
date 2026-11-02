@@ -1,7 +1,7 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
 import { getFirestore, doc, setDoc, getDoc } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+import { getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
 
-// As chaves que extraí diretamente do seu ecrã do Firebase
 const firebaseConfig = {
   apiKey: "AIzaSyDBXVR2RESuvVbx7gQ9PrlJluycJWzGdNw",
   authDomain: "sistema-precos-1b770.firebaseapp.com",
@@ -13,6 +13,7 @@ const firebaseConfig = {
 
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
+const auth = getAuth(app);
 
 document.addEventListener('DOMContentLoaded', async () => {
     const btnToggleAdmin = document.getElementById('btn-toggle-admin');
@@ -27,9 +28,16 @@ document.addEventListener('DOMContentLoaded', async () => {
     const btnClear = document.getElementById('btn-clear');
     const resultsList = document.getElementById('results-list');
 
-    let baseDeDados = []; // Os produtos vivem nesta variável agora
+    // Elementos de Autenticação (Login Admin)
+    const adminLoginBox = document.getElementById('admin-login-box');
+    const loginEmailInput = document.getElementById('login-email');
+    const loginPasswordInput = document.getElementById('login-password');
+    const btnLoginAdmin = document.getElementById('btn-login-admin');
+    const loginError = document.getElementById('login-error');
+    const userInfoText = document.getElementById('user-info');
+    const btnLogoutAdmin = document.getElementById('btn-logout-admin');
 
-    // Variáveis do Carrinho
+    let baseDeDados = []; 
     let carrinho = JSON.parse(localStorage.getItem('carrinhoCotacao') || '[]');
     if (carrinho.length > 0 && carrinho[0].valorTotalLinha === undefined) {
         carrinho = [];
@@ -43,7 +51,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     const btnClearCart = document.getElementById('btn-clear-cart');
     const btnExportCsv = document.getElementById('btn-export-csv');
 
-    // Variáveis do Modal
     const modal = document.getElementById('add-modal');
     const btnModalCancel = document.getElementById('modal-cancel');
     const btnModalConfirm = document.getElementById('modal-confirm');
@@ -51,8 +58,58 @@ document.addEventListener('DOMContentLoaded', async () => {
     const inputDiscount = document.getElementById('modal-discount');
     let itemPendente = null;
 
-    // 1. CARREGAR DADOS DO FIREBASE AO ABRIR O SISTEMA
-    statusMsg.innerText = "A ligar à nuvem e carregar tabela...";
+    // Monitorizar estado de login
+    onAuthStateChanged(auth, (user) => {
+        if (user) {
+            // Utilizador logado
+            if (user.email === 'calibrerep@gmail.com') {
+                if(btnToggleAdmin) btnToggleAdmin.style.display = 'inline-block';
+                if(adminLoginBox) adminLoginBox.style.display = 'none';
+                if(userInfoText) userInfoText.innerText = `Logado como Admin (${user.email}) | `;
+                if(btnLogoutAdmin) btnLogoutAdmin.style.display = 'inline';
+            } else {
+                // Outro utilizador (ex: consultor)
+                if(btnToggleAdmin) btnToggleAdmin.style.display = 'none';
+                if(adminArea) adminArea.classList.add('hidden');
+                if(adminLoginBox) adminLoginBox.style.display = 'none';
+            }
+        } else {
+            // Deslogado
+            if(btnToggleAdmin) btnToggleAdmin.style.display = 'none';
+            if(adminArea) adminArea.classList.add('hidden');
+            if(adminLoginBox) adminLoginBox.style.display = 'block';
+            if(userInfoText) userInfoText.innerText = '';
+            if(btnLogoutAdmin) btnLogoutAdmin.style.display = 'none';
+        }
+    });
+
+    // Ação de Login
+    if (btnLoginAdmin) {
+        btnLoginAdmin.addEventListener('click', async () => {
+            const email = loginEmailInput.value.trim();
+            const senha = loginPasswordInput.value.trim();
+            loginError.innerText = '';
+
+            try {
+                await signInWithEmailAndPassword(auth, email, senha);
+                loginEmailInput.value = '';
+                loginPasswordInput.value = '';
+            } catch (error) {
+                loginError.innerText = 'Erro no login: Verifique e-mail e senha.';
+            }
+        });
+    }
+
+    // Ação de Logout
+    if (btnLogoutAdmin) {
+        btnLogoutAdmin.addEventListener('click', async () => {
+            await signOut(auth);
+            adminArea.classList.add('hidden');
+        });
+    }
+
+    // 1. CARREGAR DADOS DO FIREBASE
+    statusMsg.innerText = "A carregar tabela da nuvem...";
     try {
         const docSnap = await getDoc(doc(db, "catalogo", "precos"));
         if (docSnap.exists()) {
@@ -61,70 +118,70 @@ document.addEventListener('DOMContentLoaded', async () => {
             lastUpdateText.innerText = `Última atualização: ${dados.dataAtualizacao}`;
             statusMsg.innerText = "";
         } else {
-            statusMsg.innerText = "A tabela na nuvem está vazia. Faça o upload do Excel.";
+            statusMsg.innerText = "A tabela na nuvem está vazia.";
         }
     } catch (error) {
         console.error(error);
         statusMsg.style.color = "red";
-        statusMsg.innerText = "Erro ao ligar ao Firebase. O Firestore está ativo no Modo Teste?";
+        statusMsg.innerText = "Erro ao carregar dados do Firebase.";
     }
 
     renderizarCarrinho();
 
-    // =============== ÁREA DE ADMIN E UPLOAD (FIREBASE) ===============
-    btnToggleAdmin.addEventListener('click', () => {
-        adminArea.classList.toggle('hidden');
-        errorLog.classList.add('hidden');
-        statusMsg.innerText = '';
-    });
+    if (btnToggleAdmin) {
+        btnToggleAdmin.addEventListener('click', () => {
+            adminArea.classList.toggle('hidden');
+            errorLog.classList.add('hidden');
+            statusMsg.innerText = '';
+        });
+    }
 
-    btnUpload.addEventListener('click', () => {
-        const file = fileInput.files[0];
-        if (!file) { alert("Por favor, selecione um ficheiro Excel primeiro."); return; }
+    if (btnUpload) {
+        btnUpload.addEventListener('click', () => {
+            const file = fileInput.files[0];
+            if (!file) { alert("Selecione um ficheiro Excel primeiro."); return; }
 
-        const reader = new FileReader();
-        reader.onload = async (e) => {
-            const data = new Uint8Array(e.target.result);
-            const workbook = XLSX.read(data, { type: 'array' });
-            const worksheet = workbook.Sheets[workbook.SheetNames[0]];
-            const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
-            
-            const res = processarDados(jsonData);
-            const dataAtual = new Date().toLocaleString('pt-BR');
-
-            statusMsg.style.color = "blue";
-            statusMsg.innerText = "A guardar na nuvem. Aguarde...";
-
-            try {
-                // Grava na Nuvem (Substitui o localStorage)
-                await setDoc(doc(db, "catalogo", "precos"), {
-                    produtos: res.produtos,
-                    dataAtualizacao: dataAtual
-                });
-
-                baseDeDados = res.produtos; // Atualiza memória da página
-                lastUpdateText.innerText = `Última atualização: ${dataAtual}`;
-
-                statusMsg.style.color = "green";
-                statusMsg.innerText = `Sucesso! ${res.produtos.length} variações guardadas na NUVEM.`;
+            const reader = new FileReader();
+            reader.onload = async (e) => {
+                const data = new Uint8Array(e.target.result);
+                const workbook = XLSX.read(data, { type: 'array' });
+                const worksheet = workbook.Sheets[workbook.SheetNames[0]];
+                const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
                 
-                if (res.erros.length > 0) {
-                    errorLog.classList.remove('hidden');
-                    errorLog.innerText = "Atenção! As seguintes linhas não foram importadas:\n\n" + res.erros.join('\n');
-                } else {
-                    errorLog.classList.add('hidden');
-                    setTimeout(() => { adminArea.classList.add('hidden'); }, 3000);
-                }
-            } catch (error) {
-                console.error(error);
-                statusMsg.style.color = "red";
-                statusMsg.innerText = "Erro ao guardar na nuvem.";
-            }
-        };
-        reader.readAsArrayBuffer(file);
-    });
+                const res = processarDados(jsonData);
+                const dataAtual = new Date().toLocaleString('pt-BR');
 
-    // Função interna de processamento
+                statusMsg.style.color = "blue";
+                statusMsg.innerText = "A guardar na nuvem (protegido)...";
+
+                try {
+                    await setDoc(doc(db, "catalogo", "precos"), {
+                        produtos: res.produtos,
+                        dataAtualizacao: dataAtual
+                    });
+
+                    baseDeDados = res.produtos;
+                    lastUpdateText.innerText = `Última atualização: ${dataAtual}`;
+                    statusMsg.style.color = "green";
+                    statusMsg.innerText = `Sucesso! ${res.produtos.length} variações guardadas.`;
+                    
+                    if (res.erros.length > 0) {
+                        errorLog.classList.remove('hidden');
+                        errorLog.innerText = "Atenção! Linhas com erro:\n\n" + res.erros.join('\n');
+                    } else {
+                        errorLog.classList.add('hidden');
+                        setTimeout(() => { adminArea.classList.add('hidden'); }, 3000);
+                    }
+                } catch (error) {
+                    console.error(error);
+                    statusMsg.style.color = "red";
+                    statusMsg.innerText = "Erro: Sem permissão ou falha ao gravar na nuvem.";
+                }
+            };
+            reader.readAsArrayBuffer(file);
+        });
+    }
+
     function processarDados(rows) {
         let produtos = [];
         let erros = [];
@@ -181,7 +238,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         const query = searchInput.value.trim().toLowerCase();
         resultsList.innerHTML = '';
 
-        if (baseDeDados.length === 0) { resultsList.innerHTML = '<li><p>Nenhum dado carregado na nuvem.</p></li>'; return; }
+        if (baseDeDados.length === 0) { resultsList.innerHTML = '<li><p>Nenhum dado carregado.</p></li>'; return; }
         if (query === '') return;
 
         const queryLimpa = query.replace(/\s/g, '');
@@ -214,7 +271,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                         </div>
                         <div class="variant-actions">
                             <span class="price-tag">${v.preco}</span>
-                            <button class="btn-add" title="Adicionar à cotação" 
+                            <button class="btn-add" title="Adicionar" 
                                 data-codigo="${v.codigo}" 
                                 data-nome="${grupo.nome}" 
                                 data-embalagem="${v.embalagem}" 
@@ -341,7 +398,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
 
     btnClearCart.addEventListener('click', () => {
-        if (confirm('Tem certeza que deseja esvaziar a cotação?')) {
+        if (confirm('Deseja esvaziar a cotação?')) {
             carrinho = [];
             localStorage.setItem('carrinhoCotacao', JSON.stringify(carrinho));
             renderizarCarrinho();
@@ -349,30 +406,26 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
 
     btnCopyCart.addEventListener('click', () => {
-        if (carrinho.length === 0) { alert('Adicione produtos antes de copiar!'); return; }
+        if (carrinho.length === 0) { alert('Adicione produtos!'); return; }
         let textoCopia = "🛒 LISTA DE COTAÇÃO:\n\n";
         carrinho.forEach(item => {
             let unitFormatado = item.valorUnitarioFinal.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
             let totalFormatado = item.valorTotalLinha.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
             textoCopia += `[${item.codigo}] ${item.nome} (${item.embalagem})\n`;
-            textoCopia += `Qtd: ${item.quantidade} | Unit: ${unitFormatado}\n`;
-            textoCopia += `Total do Item: ${totalFormatado}\n\n`;
+            textoCopia += `Qtd: ${item.quantidade} | Unit: ${unitFormat_ = unitFormatado}\n`;
+            textoCopia += `Total: ${totalFormatado}\n\n`;
         });
         textoCopia += `TOTAL ESTIMADO: ${cartTotal.innerText}`;
 
         navigator.clipboard.writeText(textoCopia).then(() => {
             const textoOriginal = btnCopyCart.innerText;
-            btnCopyCart.innerText = 'Copiado com Sucesso! ✅';
-            btnCopyCart.classList.add('btn-success-feedback');
-            setTimeout(() => {
-                btnCopyCart.innerText = textoOriginal;
-                btnCopyCart.classList.remove('btn-success-feedback');
-            }, 2000);
-        }).catch(() => { alert('Selecione o texto e copie manualmente.'); });
+            btnCopyCart.innerText = 'Copiado! ✅';
+            setTimeout(() => { btnCopyCart.innerText = textoOriginal; }, 2000);
+        });
     });
 
     btnExportCsv.addEventListener('click', () => {
-        if (carrinho.length === 0) { alert('Adicione produtos antes de exportar!'); return; }
+        if (carrinho.length === 0) { alert('Adicione produtos!'); return; }
         let csvContent = "data:text/csv;charset=utf-8,\uFEFF"; 
         csvContent += "Código;Nome;Embalagem;Quantidade;Valor Unitário (R$);Valor Total (R$)\n";
         carrinho.forEach(item => {
@@ -381,9 +434,8 @@ document.addEventListener('DOMContentLoaded', async () => {
             let totalStr = item.valorTotalLinha.toFixed(2).replace('.', ',');
             csvContent += `${item.codigo};${nomeStr};${item.embalagem};${item.quantidade};${unitarioStr};${totalStr}\n`;
         });
-        const encodedUri = encodeURI(csvContent);
         const link = document.createElement("a");
-        link.setAttribute("href", encodedUri);
+        link.setAttribute("href", encodeURI(csvContent));
         link.setAttribute("download", `cotacao_${new Date().getTime()}.csv`);
         document.body.appendChild(link);
         link.click();

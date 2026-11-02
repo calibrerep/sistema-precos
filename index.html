@@ -15,7 +15,26 @@
                 <h1>Consulta de Preços</h1>
                 <p id="last-update" class="update-info">Última atualização: Nenhuma</p>
             </div>
-            <button id="btn-toggle-admin" class="btn-secondary">Atualizar Tabela</button>
+            
+            <!-- ÁREA DE CONTROLO DE ADMIN / LOGIN NO HEADER -->
+            <div class="admin-auth-container" style="display: flex; flex-direction: column; align-items: flex-end; gap: 5px;">
+                <!-- Caixa de Login (visível apenas para quem deslogar) -->
+                <div id="admin-login-box" style="display: none; background: #fff; padding: 8px; border-radius: 6px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); border: 1px solid #ddd;">
+                    <input type="email" id="login-email" placeholder="E-mail admin" style="padding: 4px; font-size: 12px; margin-right: 4px; width: 140px;">
+                    <input type="password" id="login-password" placeholder="Senha" style="padding: 4px; font-size: 12px; margin-right: 4px; width: 100px;">
+                    <button id="btn-login-admin" class="btn-primary" style="padding: 4px 8px; font-size: 12px;">Entrar</button>
+                    <p id="login-error" style="color: red; font-size: 11px; margin: 2px 0 0 0;"></p>
+                </div>
+
+                <!-- Sessão Ativa / Logout -->
+                <div id="user-session-box" style="font-size: 13px;">
+                    <span id="user-info" style="font-weight: bold; color: #28a745;"></span>
+                    <button id="btn-logout-admin" class="btn-secondary" style="display: none; padding: 2px 6px; font-size: 11px; background: #dc3545; color: white; border: none;">Sair</button>
+                </div>
+
+                <!-- Botão original para abrir a área de atualizar tabela (só aparece para o admin logado) -->
+                <button id="btn-toggle-admin" class="btn-secondary" style="display:none;">Atualizar Tabela</button>
+            </div>
         </header>
 
         <!-- Área de Upload -->
