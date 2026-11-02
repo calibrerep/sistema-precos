@@ -10,77 +10,87 @@
 <body>
 
     <div class="container">
-        <header>
-            <div>
-                <h1>Consulta de Preços</h1>
-                <p id="last-update" class="update-info">Última atualização: Nenhuma</p>
-            </div>
+        
+        <!-- TELA DE LOGIN INICIAL (Visível por padrão) -->
+        <div id="login-screen" style="max-width: 400px; margin: 80px auto; padding: 30px; background: #ffffff; border-radius: 8px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); text-align: center; border: 1px solid #ddd;">
+            <h2 style="margin-bottom: 20px; color: #333;">🔒 Acesso Restrito</h2>
+            <p style="color: #666; font-size: 14px; margin-bottom: 20px;">Insira as suas credenciais para aceder ao sistema de preços.</p>
             
-            <!-- ÁREA DE CONTROLO DE ADMIN / LOGIN NO HEADER -->
-            <div class="admin-auth-container" style="display: flex; flex-direction: column; align-items: flex-end; gap: 5px;">
-                <!-- Caixa de Login (visível apenas para quem deslogar) -->
-                <div id="admin-login-box" style="display: none; background: #fff; padding: 8px; border-radius: 6px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); border: 1px solid #ddd;">
-                    <input type="email" id="login-email" placeholder="E-mail admin" style="padding: 4px; font-size: 12px; margin-right: 4px; width: 140px;">
-                    <input type="password" id="login-password" placeholder="Senha" style="padding: 4px; font-size: 12px; margin-right: 4px; width: 100px;">
-                    <button id="btn-login-admin" class="btn-primary" style="padding: 4px 8px; font-size: 12px;">Entrar</button>
-                    <p id="login-error" style="color: red; font-size: 11px; margin: 2px 0 0 0;"></p>
-                </div>
-
-                <!-- Sessão Ativa / Logout -->
-                <div id="user-session-box" style="font-size: 13px;">
-                    <span id="user-info" style="font-weight: bold; color: #28a745;"></span>
-                    <button id="btn-logout-admin" class="btn-secondary" style="display: none; padding: 2px 6px; font-size: 11px; background: #dc3545; color: white; border: none;">Sair</button>
-                </div>
-
-                <!-- Botão original para abrir a área de atualizar tabela (só aparece para o admin logado) -->
-                <button id="btn-toggle-admin" class="btn-secondary" style="display:none;">Atualizar Tabela</button>
-            </div>
-        </header>
-
-        <!-- Área de Upload -->
-        <section id="admin-area" class="hidden card admin-card">
-            <h2>Atualizar Base de Dados</h2>
-            <p>Selecione a planilha Excel (.xlsx) com 2 colunas (Produto e Preços).</p>
-            <input type="file" id="excel-file" accept=".xlsx, .xls">
-            <button id="btn-upload" class="btn-primary">Processar Planilha</button>
-            <p id="upload-status"></p>
-            <div id="error-log" class="hidden error-log"></div>
-        </section>
-
-        <div class="layout-wrapper">
-            <!-- COLUNA ESQUERDA: Busca e Resultados -->
-            <div class="content-left">
-                <section id="search-area" class="card">
-                    <div class="search-box">
-                        <input type="text" id="search-input" placeholder="Digite o código (ex: AB 123456701) ou nome...">
-                        <button id="btn-clear" class="btn-secondary hidden" title="Limpar Busca">X</button>
-                        <button id="btn-search" class="btn-primary">Buscar</button>
-                    </div>
-                </section>
-
-                <section id="results-area">
-                    <ul id="results-list"></ul>
-                </section>
+            <div style="margin-bottom: 15px; text-align: left;">
+                <label style="font-size: 13px; font-weight: bold; display: block; margin-bottom: 5px;">E-mail:</label>
+                <input type="email" id="login-email" placeholder="seu-email@empresa.com" style="width: 100%; padding: 10px; font-size: 14px; box-sizing: border-box; border: 1px solid #ccc; border-radius: 4px;">
             </div>
 
-            <!-- COLUNA DIREITA: Carrinho de Cotação -->
-            <div class="content-right">
-                <section id="cart-area" class="card">
-                    <h2>🛒 Cotação <span id="cart-count">(0)</span></h2>
-                    
-                    <ul id="cart-list" class="cart-list">
-                        <li><p class="empty-cart">Seu carrinho está vazio.</p></li>
-                    </ul>
-                    
-                    <div class="cart-footer">
-                        <p><strong>Total:</strong> <span id="cart-total">R$ 0,00</span></p>
-                        <button id="btn-copy-cart" class="btn-primary full-width">Copiar Lista</button>
-                        <button id="btn-export-csv" class="btn-primary full-width" style="margin-top: 10px; background-color: #17a2b8;">Baixar CSV</button>
-                        <button id="btn-clear-cart" class="btn-secondary full-width" style="margin-top: 10px;">Esvaziar</button>
-                    </div>
-                </section>
+            <div style="margin-bottom: 20px; text-align: left;">
+                <label style="font-size: 13px; font-weight: bold; display: block; margin-bottom: 5px;">Senha:</label>
+                <input type="password" id="login-password" placeholder="********" style="width: 100%; padding: 10px; font-size: 14px; box-sizing: border-box; border: 1px solid #ccc; border-radius: 4px;">
+            </div>
+
+            <button id="btn-login-admin" class="btn-primary" style="width: 100%; padding: 12px; font-size: 16px; cursor: pointer;">Entrar no Sistema</button>
+            <p id="login-error" style="color: red; font-size: 13px; margin-top: 15px;"></p>
+        </div>
+
+        <!-- SISTEMA COMPLETO (Oculto até efetuar login) -->
+        <div id="app-container" class="hidden">
+            <header>
+                <div>
+                    <h1>Consulta de Preços</h1>
+                    <p id="last-update" class="update-info">Última atualização: Nenhuma</p>
+                </div>
+                
+                <div style="display: flex; align-items: center; gap: 10px;">
+                    <span id="user-info" style="font-weight: bold; color: #28a745; font-size: 14px;"></span>
+                    <button id="btn-logout-admin" class="btn-secondary" style="padding: 6px 12px; background: #dc3545; color: white; border: none; border-radius: 4px; cursor: pointer;">Sair</button>
+                    <button id="btn-toggle-admin" class="btn-secondary" style="display:none;">Atualizar Tabela</button>
+                </div>
+            </header>
+
+            <!-- Área de Upload (Apenas Admin) -->
+            <section id="admin-area" class="hidden card admin-card">
+                <h2>Atualizar Base de Dados</h2>
+                <p>Selecione a planilha Excel (.xlsx) com 2 colunas (Produto e Preços).</p>
+                <input type="file" id="excel-file" accept=".xlsx, .xls">
+                <button id="btn-upload" class="btn-primary">Processar Planilha</button>
+                <p id="upload-status"></p>
+                <div id="error-log" class="hidden error-log"></div>
+            </section>
+
+            <div class="layout-wrapper">
+                <!-- COLUNA ESQUERDA: Busca e Resultados -->
+                <div class="content-left">
+                    <section id="search-area" class="card">
+                        <div class="search-box">
+                            <input type="text" id="search-input" placeholder="Digite o código (ex: AB 123456701) ou nome...">
+                            <button id="btn-clear" class="btn-secondary hidden" title="Limpar Busca">X</button>
+                            <button id="btn-search" class="btn-primary">Buscar</button>
+                        </div>
+                    </section>
+
+                    <section id="results-area">
+                        <ul id="results-list"></ul>
+                    </section>
+                </div>
+
+                <!-- COLUNA DIREITA: Carrinho de Cotação -->
+                <div class="content-right">
+                    <section id="cart-area" class="card">
+                        <h2>🛒 Cotação <span id="cart-count">(0)</span></h2>
+                        
+                        <ul id="cart-list" class="cart-list">
+                            <li><p class="empty-cart">Seu carrinho está vazio.</p></li>
+                        </ul>
+                        
+                        <div class="cart-footer">
+                            <p><strong>Total:</strong> <span id="cart-total">R$ 0,00</span></p>
+                            <button id="btn-copy-cart" class="btn-primary full-width">Copiar Lista</button>
+                            <button id="btn-export-csv" class="btn-primary full-width" style="margin-top: 10px; background-color: #17a2b8;">Baixar CSV</button>
+                            <button id="btn-clear-cart" class="btn-secondary full-width" style="margin-top: 10px;">Esvaziar</button>
+                        </div>
+                    </section>
+                </div>
             </div>
         </div>
+
     </div>
 
     <!-- MODAL DE QUANTIDADE E DESCONTO -->

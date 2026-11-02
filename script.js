@@ -16,6 +16,16 @@ const db = getFirestore(app);
 const auth = getAuth(app);
 
 document.addEventListener('DOMContentLoaded', async () => {
+    // Elementos de Telas e Autenticação
+    const loginScreen = document.getElementById('login-screen');
+    const appContainer = document.getElementById('app-container');
+    const loginEmailInput = document.getElementById('login-email');
+    const loginPasswordInput = document.getElementById('login-password');
+    const btnLoginAdmin = document.getElementById('btn-login-admin');
+    const loginError = document.getElementById('login-error');
+    const userInfoText = document.getElementById('user-info');
+    const btnLogoutAdmin = document.getElementById('btn-logout-admin');
+
     const btnToggleAdmin = document.getElementById('btn-toggle-admin');
     const adminArea = document.getElementById('admin-area');
     const btnUpload = document.getElementById('btn-upload');
@@ -23,19 +33,11 @@ document.addEventListener('DOMContentLoaded', async () => {
     const statusMsg = document.getElementById('upload-status');
     const errorLog = document.getElementById('error-log');
     const lastUpdateText = document.getElementById('last-update');
+    
     const searchInput = document.getElementById('search-input');
     const btnSearch = document.getElementById('btn-search');
     const btnClear = document.getElementById('btn-clear');
     const resultsList = document.getElementById('results-list');
-
-    // Elementos de Autenticação (Login Admin)
-    const adminLoginBox = document.getElementById('admin-login-box');
-    const loginEmailInput = document.getElementById('login-email');
-    const loginPasswordInput = document.getElementById('login-password');
-    const btnLoginAdmin = document.getElementById('btn-login-admin');
-    const loginError = document.getElementById('login-error');
-    const userInfoText = document.getElementById('user-info');
-    const btnLogoutAdmin = document.getElementById('btn-logout-admin');
 
     let baseDeDados = []; 
     let carrinho = JSON.parse(localStorage.getItem('carrinhoCotacao') || '[]');
@@ -58,46 +60,58 @@ document.addEventListener('DOMContentLoaded', async () => {
     const inputDiscount = document.getElementById('modal-discount');
     let itemPendente = null;
 
-    // Monitorizar estado de login
-    onAuthStateChanged(auth, (user) => {
+    // Monitorizar estado de login (Controla a exibição das telas)
+    onAuthStateChanged(auth, async (user) => {
         if (user) {
-            // Utilizador logado
+            // Utilizador logado: Esconde tela de login e mostra o sistema
+            loginScreen.classList.add('hidden');
+            appContainer.classList.remove('hidden');
+
+            userInfoText.innerText = `Logado: ${user.email}`;
+
+            // Se for o Admin principal, libera o botão de atualizar tabela
             if (user.email === 'calibrerep@gmail.com') {
                 if(btnToggleAdmin) btnToggleAdmin.style.display = 'inline-block';
-                if(adminLoginBox) adminLoginBox.style.display = 'none';
-                if(userInfoText) userInfoText.innerText = `Logado como Admin (${user.email}) | `;
-                if(btnLogoutAdmin) btnLogoutAdmin.style.display = 'inline';
             } else {
-                // Outro utilizador (ex: consultor)
+                // Consultores (ex: emezavila) não veem o painel de admin
                 if(btnToggleAdmin) btnToggleAdmin.style.display = 'none';
                 if(adminArea) adminArea.classList.add('hidden');
-                if(adminLoginBox) adminLoginBox.style.display = 'none';
             }
+
+            // Carrega os dados do Firebase assim que entra
+            await carregarDadosDaNuvem();
+
         } else {
-            // Deslogado
-            if(btnToggleAdmin) btnToggleAdmin.style.display = 'none';
-            if(adminArea) adminArea.classList.add('hidden');
-            if(adminLoginBox) adminLoginBox.style.display = 'block';
-            if(userInfoText) userInfoText.innerText = '';
-            if(btnLogoutAdmin) btnLogoutAdmin.style.display = 'none';
+            // Deslogado: Mostra apenas a tela de login e oculta o sistema
+            loginScreen.classList.remove('hidden');
+            appContainer.classList.add('hidden');
+            userInfoText.innerText = '';
         }
     });
 
     // Ação de Login
     if (btnLoginAdmin) {
-        btnLoginAdmin.addEventListener('click', async () => {
-            const email = loginEmailInput.value.trim();
-            const senha = loginPasswordInput.value.trim();
-            loginError.innerText = '';
+        btnLoginAdmin.addEventListener('click', realizarLogin);
+        loginPasswordInput.addEventListener('keypress', (e) => { if (e.key === 'Enter') realizarLogin(); });
+    }
 
-            try {
-                await signInWithEmailAndPassword(auth, email, senha);
-                loginEmailInput.value = '';
-                loginPasswordInput.value = '';
-            } catch (error) {
-                loginError.innerText = 'Erro no login: Verifique e-mail e senha.';
-            }
-        });
+    async function realizarLogin() {
+        const email = loginEmailInput.value.trim();
+        const senha = loginPasswordInput.value.trim();
+        loginError.innerText = '';
+
+        if (!email || !senha) {
+            loginError.innerText = 'Preencha o e-mail e a senha.';
+            return;
+        }
+
+        try {
+            await signInWithEmailAndPassword(auth, email, senha);
+            loginEmailInput.value = '';
+            loginPasswordInput.value = '';
+        } catch (error) {
+            loginError.innerText = 'Erro: E-mail ou senha incorretos.';
+        }
     }
 
     // Ação de Logout
@@ -105,28 +119,31 @@ document.addEventListener('DOMContentLoaded', async () => {
         btnLogoutAdmin.addEventListener('click', async () => {
             await signOut(auth);
             adminArea.classList.add('hidden');
+            baseDeDados = [];
+            resultsList.innerHTML = '';
         });
     }
 
-    // 1. CARREGAR DADOS DO FIREBASE
-    statusMsg.innerText = "A carregar tabela da nuvem...";
-    try {
-        const docSnap = await getDoc(doc(db, "catalogo", "precos"));
-        if (docSnap.exists()) {
-            const dados = docSnap.data();
-            baseDeDados = dados.produtos || [];
-            lastUpdateText.innerText = `Última atualização: ${dados.dataAtualizacao}`;
-            statusMsg.innerText = "";
-        } else {
-            statusMsg.innerText = "A tabela na nuvem está vazia.";
+    // CARREGAR DADOS DO FIREBASE
+    async function carregarDadosDaNuvem() {
+        statusMsg.innerText = "A carregar tabela da nuvem...";
+        try {
+            const docSnap = await getDoc(doc(db, "catalogo", "precos"));
+            if (docSnap.exists()) {
+                const dados = docSnap.data();
+                baseDeDados = dados.produtos || [];
+                lastUpdateText.innerText = `Última atualização: ${dados.dataAtualizacao}`;
+                statusMsg.innerText = "";
+            } else {
+                statusMsg.innerText = "A tabela na nuvem está vazia.";
+            }
+        } catch (error) {
+            console.error(error);
+            statusMsg.style.color = "red";
+            statusMsg.innerText = "Erro ao carregar dados do Firebase.";
         }
-    } catch (error) {
-        console.error(error);
-        statusMsg.style.color = "red";
-        statusMsg.innerText = "Erro ao carregar dados do Firebase.";
+        renderizarCarrinho();
     }
-
-    renderizarCarrinho();
 
     if (btnToggleAdmin) {
         btnToggleAdmin.addEventListener('click', () => {
@@ -412,7 +429,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             let unitFormatado = item.valorUnitarioFinal.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
             let totalFormatado = item.valorTotalLinha.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
             textoCopia += `[${item.codigo}] ${item.nome} (${item.embalagem})\n`;
-            textoCopia += `Qtd: ${item.quantidade} | Unit: ${unitFormat_ = unitFormatado}\n`;
+            textoCopia += `Qtd: ${item.quantidade} | Unit: ${unitFormatado}\n`;
             textoCopia += `Total: ${totalFormatado}\n\n`;
         });
         textoCopia += `TOTAL ESTIMADO: ${cartTotal.innerText}`;
