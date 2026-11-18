@@ -151,7 +151,6 @@ document.addEventListener('DOMContentLoaded', async () => {
                 return;
             }
 
-            // Agrupar produtos por código base para reconstruir o formato original de colunas
             const agrupados = {};
             baseDeDados.forEach(prod => {
                 if (!agrupados[prod.codigoBase]) {
@@ -161,12 +160,10 @@ document.addEventListener('DOMContentLoaded', async () => {
                         variacoes: []
                     };
                 }
-                // Extrair os 2 últimos dígitos da variação
                 let finalCodeNumber = prod.codigo.replace(prod.codigoBase, '').trim();
                 agrupados[prod.codigoBase].variacoes.push(`${finalCodeNumber} * ${prod.embalagem} ${prod.preco}`);
             });
 
-            // Montar linhas no formato de 2 colunas da planilha original
             const linhasExcel = [];
             Object.values(agrupados).forEach(g => {
                 let col1 = `${g.codigoBase} ${g.nome}`;
@@ -174,12 +171,10 @@ document.addEventListener('DOMContentLoaded', async () => {
                 linhasExcel.push([col1, col2]);
             });
 
-            // Criar workbook e worksheet do SheetJS
             const ws = XLSX.utils.aoa_to_sheet(linhasExcel);
             const wb = XLSX.utils.book_new();
             XLSX.utils.book_append_sheet(wb, ws, "TabelaPrecos");
 
-            // Gerar ficheiro e disparar o download
             XLSX.writeFile(wb, `tabela_precos_completa_${new Date().toISOString().slice(0,10)}.xlsx`);
         });
     }
@@ -334,7 +329,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         });
     }
 
-    // =============== MODAL DE ADIÇÃO ===============
+    // =============== MODAL DE ADIÇÃO / EDIÇÃO ===============
     resultsList.addEventListener('click', (e) => {
         if (e.target.classList.contains('btn-add')) {
             const btn = e.target;
@@ -342,7 +337,8 @@ document.addEventListener('DOMContentLoaded', async () => {
                 codigo: btn.dataset.codigo,
                 nome: btn.dataset.nome,
                 embalagem: btn.dataset.embalagem,
-                precoOriginalString: btn.dataset.preco
+                precoOriginalString: btn.dataset.preco,
+                editIndex: -1 // Novo item
             };
             document.getElementById('modal-product-name').innerText = `[${itemPendente.codigo}] ${itemPendente.nome} (${itemPendente.embalagem})`;
             inputQty.value = 1;
@@ -357,12 +353,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     btnModalConfirm.addEventListener('click', () => {
         if (!itemPendente) return;
 
-        const indexExistente = carrinho.findIndex(item => item.codigo === itemPendente.codigo);
-        if (indexExistente !== -1) {
-            alert('Este item já está no carrinho! Você pode alterar a quantidade diretamente por lá.');
-            return; 
-        }
-
         const qtd = parseInt(inputQty.value) || 1;
         let desc = parseFloat(inputDiscount.value) || 0;
         if (desc < 0) desc = 0;
@@ -372,10 +362,34 @@ document.addEventListener('DOMContentLoaded', async () => {
         let valorComDesconto = valorBaseNum * (1 - (desc / 100));
         let valorTotalLinha = valorComDesconto * qtd;
 
-        carrinho.push({
-            codigo: itemPendente.codigo, nome: itemPendente.nome, embalagem: itemPendente.embalagem,
-            quantidade: qtd, descontoAplicado: desc, valorUnitarioFinal: valorComDesconto, valorTotalLinha: valorTotalLinha
-        });
+        if (itemPendente.editIndex !== undefined && itemPendente.editIndex !== -1) {
+            // Edição de item existente no carrinho
+            let idx = itemPendente.editIndex;
+            carrinho[idx].quantidade = qtd;
+            carrinho[idx].descontoAplicado = desc;
+            carrinho[idx].valorUnitarioFinal = valorComDesconto;
+            carrinho[idx].valorTotalLinha = valorTotalLinha;
+        } else {
+            // Adição de novo item (verifica se já existe)
+            const indexExistente = carrinho.findIndex(item => item.codigo === itemPendente.codigo);
+            if (indexExistente !== -1) {
+                alert('Este item já está no carrinho! Pode editar o desconto ou quantidade diretamente na lista.');
+                modal.classList.add('hidden');
+                itemPendente = null;
+                return; 
+            }
+
+            carrinho.push({
+                codigo: itemPendente.codigo, 
+                nome: itemPendente.nome, 
+                embalagem: itemPendente.embalagem,
+                precoOriginalString: itemPendente.precoOriginalString,
+                quantidade: qtd, 
+                descontoAplicado: desc, 
+                valorUnitarioFinal: valorComDesconto, 
+                valorTotalLinha: valorTotalLinha
+            });
+        }
 
         localStorage.setItem('carrinhoCotacao', JSON.stringify(carrinho));
         renderizarCarrinho();
@@ -383,10 +397,12 @@ document.addEventListener('DOMContentLoaded', async () => {
         itemPendente = null;
     });
 
-    // =============== CARRINHO E EXPORTAÇÕES ===============
+    // =============== CARRINHO E CONTROLO DE ITENS ===============
     cartList.addEventListener('click', (e) => {
         const index = e.target.dataset.index;
-        if (e.target.classList.contains('btn-remove')) { carrinho.splice(index, 1); } 
+        if (e.target.classList.contains('btn-remove')) { 
+            carrinho.splice(index, 1); 
+        } 
         else if (e.target.classList.contains('btn-qty-plus')) {
             carrinho[index].quantidade++;
             carrinho[index].valorTotalLinha = carrinho[index].quantidade * carrinho[index].valorUnitarioFinal;
@@ -396,7 +412,26 @@ document.addEventListener('DOMContentLoaded', async () => {
                 carrinho[index].quantidade--;
                 carrinho[index].valorTotalLinha = carrinho[index].quantidade * carrinho[index].valorUnitarioFinal;
             }
-        } else { return; }
+        } 
+        else if (e.target.classList.contains('btn-edit-item')) {
+            // Abrir modal para editar o item existente
+            const item = carrinho[index];
+            itemPendente = {
+                codigo: item.codigo,
+                nome: item.nome,
+                embalagem: item.embalagem,
+                precoOriginalString: item.precoOriginalString,
+                editIndex: index
+            };
+            document.getElementById('modal-product-name').innerText = `[${item.codigo}] ${item.nome} (${item.embalagem})`;
+            inputQty.value = item.quantidade;
+            inputDiscount.value = item.descontoAplicado;
+            modal.classList.remove('hidden');
+            inputQty.focus();
+            return;
+        } else { 
+            return; 
+        }
 
         localStorage.setItem('carrinhoCotacao', JSON.stringify(carrinho));
         renderizarCarrinho();
@@ -418,21 +453,24 @@ document.addEventListener('DOMContentLoaded', async () => {
         carrinho.forEach((item, index) => {
             const li = document.createElement('li');
             li.className = 'cart-item';
-            let htmlDesconto = item.descontoAplicado > 0 ? `<span class="cart-discount">(-${item.descontoAplicado}%)</span>` : '';
+            let htmlDesconto = item.descontoAplicado > 0 ? `<span class="cart-discount" style="color: #e67e22; font-weight: bold;">(-${item.descontoAplicado}%)</span>` : '';
             let unitarioFormatado = item.valorUnitarioFinal.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
             let totalLinhaFormatado = item.valorTotalLinha.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 
             li.innerHTML = `
                 <div style="flex: 1;">
-                    <span class="cart-item-title">${item.nome}</span>
+                    <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+                        <span class="cart-item-title">${item.nome}</span>
+                        <button class="btn-edit-item" data-index="${index}" title="Editar quantidade ou desconto" style="background: #ffc107; border: none; border-radius: 3px; padding: 2px 6px; font-size: 11px; cursor: pointer; font-weight: bold;">✏️ Editar</button>
+                    </div>
                     <span class="cart-item-code">${item.codigo} | ${item.embalagem}</span>
-                    <div style="display: flex; align-items: center; margin-top: 4px;">
+                    <div style="display: flex; align-items: center; gap: 8px; margin-top: 4px;">
                         <div class="cart-qty-controls">
                             <button class="btn-qty-minus" data-index="${index}">-</button>
                             <span>${item.quantidade}x</span>
                             <button class="btn-qty-plus" data-index="${index}">+</button>
                         </div>
-                        ${unitarioFormatado} ${htmlDesconto}
+                        <div>${unitarioFormatado} ${htmlDesconto}</div>
                     </div>
                     <span class="cart-price-total">${totalLinhaFormatado}</span>
                 </div>
@@ -453,7 +491,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
     });
 
-btnCopyCart.addEventListener('click', () => {
+    btnCopyCart.addEventListener('click', () => {
         if (carrinho.length === 0) { alert('Adicione produtos!'); return; }
         let textoCopia = "🛒 LISTA DE COTAÇÃO:\n\n";
         carrinho.forEach(item => {
@@ -474,7 +512,7 @@ btnCopyCart.addEventListener('click', () => {
         });
     });
 
-btnExportCsv.addEventListener('click', () => {
+    btnExportCsv.addEventListener('click', () => {
         if (carrinho.length === 0) { alert('Adicione produtos!'); return; }
         let csvContent = "data:text/csv;charset=utf-8,\uFEFF"; 
         csvContent += "Código;Nome;Embalagem;Quantidade;Valor Unitário (R$);Valor Total (R$)\n";
@@ -484,7 +522,6 @@ btnExportCsv.addEventListener('click', () => {
             let totalStr = item.valorTotalLinha.toFixed(2).replace('.', ',');
             csvContent += `${item.codigo};${nomeStr};${item.embalagem};${item.quantidade};${unitarioStr};${totalStr}\n`;
         });
-        // Adiciona as linhas de aviso no final do CSV
         csvContent += "\n;;\n";
         csvContent += "\"*Itens sem impostos calculados.\";;\n";
         csvContent += "\"*Frete FOB (Por conta do cliente).\";;\n";
