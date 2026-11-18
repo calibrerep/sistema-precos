@@ -286,15 +286,17 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         const queryLimpa = query.replace(/\s/g, '');
         
-        // NOVO: Verifica se a busca é um número de linha (ex: "01", "02", etc.)
+        // Verifica se a busca é um número de linha (ex: "01", "02", "68", etc.)
         const isBuscaLinha = /^\d+$/.test(queryLimpa);
 
         const resultados = baseDeDados.filter(prod => {
             if (isBuscaLinha) {
-                // Se for número, procura se a parte numérica do código contém o termo digitado
-                // Ex: "AB 010500101" -> remove as letras e foca nos números "010500101"
+                // Remove as letras iniciais (ex: "BT ") e pega os números seguintes
                 const apenasNumeros = prod.codigo.replace(/^[A-Za-z\s]+/, '').replace(/\s/g, '').toLowerCase();
-                return apenasNumeros.includes(queryLimpa) || prod.codigoBusca.includes(queryLimpa);
+                
+                // CORREÇÃO: Verifica se o código COMEÇA com o número digitado (ex: linha "01") 
+                // ou se bate certo com o código de busca normal
+                return apenasNumeros.startsWith(queryLimpa) || prod.codigoBusca.includes(queryLimpa);
             } else {
                 // Busca normal por texto, nome ou código completo
                 return prod.codigoBusca.includes(queryLimpa) || 
