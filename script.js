@@ -453,7 +453,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
     });
 
-    btnCopyCart.addEventListener('click', () => {
+btnCopyCart.addEventListener('click', () => {
         if (carrinho.length === 0) { alert('Adicione produtos!'); return; }
         let textoCopia = "🛒 LISTA DE COTAÇÃO:\n\n";
         carrinho.forEach(item => {
@@ -463,7 +463,9 @@ document.addEventListener('DOMContentLoaded', async () => {
             textoCopia += `Qtd: ${item.quantidade} | Unit: ${unitFormatado}\n`;
             textoCopia += `Total: ${totalFormatado}\n\n`;
         });
-        textoCopia += `TOTAL ESTIMADO: ${cartTotal.innerText}`;
+        textoCopia += `TOTAL ESTIMADO: ${cartTotal.innerText}\n\n`;
+        textoCopia += "*Itens sem impostos calculados.\n";
+        textoCopia += "*Frete FOB (Por conta do cliente).";
 
         navigator.clipboard.writeText(textoCopia).then(() => {
             const textoOriginal = btnCopyCart.innerText;
@@ -472,7 +474,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         });
     });
 
-    btnExportCsv.addEventListener('click', () => {
+btnExportCsv.addEventListener('click', () => {
         if (carrinho.length === 0) { alert('Adicione produtos!'); return; }
         let csvContent = "data:text/csv;charset=utf-8,\uFEFF"; 
         csvContent += "Código;Nome;Embalagem;Quantidade;Valor Unitário (R$);Valor Total (R$)\n";
@@ -482,6 +484,11 @@ document.addEventListener('DOMContentLoaded', async () => {
             let totalStr = item.valorTotalLinha.toFixed(2).replace('.', ',');
             csvContent += `${item.codigo};${nomeStr};${item.embalagem};${item.quantidade};${unitarioStr};${totalStr}\n`;
         });
+        // Adiciona as linhas de aviso no final do CSV
+        csvContent += "\n;;\n";
+        csvContent += "\"*Itens sem impostos calculados.\";;\n";
+        csvContent += "\"*Frete FOB (Por conta do cliente).\";;\n";
+
         const link = document.createElement("a");
         link.setAttribute("href", encodeURI(csvContent));
         link.setAttribute("download", `cotacao_${new Date().getTime()}.csv`);
