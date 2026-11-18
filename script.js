@@ -16,7 +16,6 @@ const db = getFirestore(app);
 const auth = getAuth(app);
 
 document.addEventListener('DOMContentLoaded', async () => {
-    // Elementos de Telas e Autenticação
     const loginScreen = document.getElementById('login-screen');
     const appContainer = document.getElementById('app-container');
     const loginEmailInput = document.getElementById('login-email');
@@ -29,6 +28,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     const btnToggleAdmin = document.getElementById('btn-toggle-admin');
     const adminArea = document.getElementById('admin-area');
     const btnUpload = document.getElementById('btn-upload');
+    const btnDownloadBase = document.getElementById('btn-download-base');
     const fileInput = document.getElementById('excel-file');
     const statusMsg = document.getElementById('upload-status');
     const errorLog = document.getElementById('error-log');
@@ -60,36 +60,28 @@ document.addEventListener('DOMContentLoaded', async () => {
     const inputDiscount = document.getElementById('modal-discount');
     let itemPendente = null;
 
-    // Monitorizar estado de login (Controla a exibição das telas)
+    // Monitorizar estado de login
     onAuthStateChanged(auth, async (user) => {
         if (user) {
-            // Utilizador logado: Esconde tela de login e mostra o sistema
             loginScreen.classList.add('hidden');
             appContainer.classList.remove('hidden');
-
             userInfoText.innerText = `Logado: ${user.email}`;
 
-            // Se for o Admin principal, libera o botão de atualizar tabela
             if (user.email === 'calibrerep@gmail.com') {
                 if(btnToggleAdmin) btnToggleAdmin.style.display = 'inline-block';
             } else {
-                // Consultores (ex: emezavila) não veem o painel de admin
                 if(btnToggleAdmin) btnToggleAdmin.style.display = 'none';
                 if(adminArea) adminArea.classList.add('hidden');
             }
 
-            // Carrega os dados do Firebase assim que entra
             await carregarDadosDaNuvem();
-
         } else {
-            // Deslogado: Mostra apenas a tela de login e oculta o sistema
             loginScreen.classList.remove('hidden');
             appContainer.classList.add('hidden');
             userInfoText.innerText = '';
         }
     });
 
-    // Ação de Login
     if (btnLoginAdmin) {
         btnLoginAdmin.addEventListener('click', realizarLogin);
         loginPasswordInput.addEventListener('keypress', (e) => { if (e.key === 'Enter') realizarLogin(); });
@@ -114,7 +106,6 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
     }
 
-    // Ação de Logout
     if (btnLogoutAdmin) {
         btnLogoutAdmin.addEventListener('click', async () => {
             await signOut(auth);
@@ -124,7 +115,6 @@ document.addEventListener('DOMContentLoaded', async () => {
         });
     }
 
-    // CARREGAR DADOS DO FIREBASE
     async function carregarDadosDaNuvem() {
         statusMsg.innerText = "A carregar tabela da nuvem...";
         try {
@@ -150,6 +140,47 @@ document.addEventListener('DOMContentLoaded', async () => {
             adminArea.classList.toggle('hidden');
             errorLog.classList.add('hidden');
             statusMsg.innerText = '';
+        });
+    }
+
+    // BOTÃO PARA BAIXAR A TABELA COMPLETA EM EXCEL
+    if (btnDownloadBase) {
+        btnDownloadBase.addEventListener('click', () => {
+            if (baseDeDados.length === 0) {
+                alert("Não há dados carregados para baixar.");
+                return;
+            }
+
+            // Agrupar produtos por código base para reconstruir o formato original de colunas
+            const agrupados = {};
+            baseDeDados.forEach(prod => {
+                if (!agrupados[prod.codigoBase]) {
+                    agrupados[prod.codigoBase] = {
+                        codigoBase: prod.codigoBase,
+                        nome: prod.nome,
+                        variacoes: []
+                    };
+                }
+                // Extrair os 2 últimos dígitos da variação
+                let finalCodeNumber = prod.codigo.replace(prod.codigoBase, '').trim();
+                agrupados[prod.codigoBase].variacoes.push(`${finalCodeNumber} * ${prod.embalagem} ${prod.preco}`);
+            });
+
+            // Montar linhas no formato de 2 colunas da planilha original
+            const linhasExcel = [];
+            Object.values(agrupados).forEach(g => {
+                let col1 = `${g.codigoBase} ${g.nome}`;
+                let col2 = g.variacoes.join(' | ');
+                linhasExcel.push([col1, col2]);
+            });
+
+            // Criar workbook e worksheet do SheetJS
+            const ws = XLSX.utils.aoa_to_sheet(linhasExcel);
+            const wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, ws, "TabelaPrecos");
+
+            // Gerar ficheiro e disparar o download
+            XLSX.writeFile(wb, `tabela_precos_completa_${new Date().toISOString().slice(0,10)}.xlsx`);
         });
     }
 
